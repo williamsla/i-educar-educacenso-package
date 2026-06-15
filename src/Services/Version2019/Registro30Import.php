@@ -623,7 +623,7 @@ class Registro30Import implements RegistroImportInterface
         }
     }
 
-    private function storeEmployeeCourses(Employee $employee): void
+    protected function storeEmployeeCourses(Employee $employee): void
     {
         $arrayCourses = [];
 
@@ -680,7 +680,7 @@ class Registro30Import implements RegistroImportInterface
         }
 
         if ($this->model->formacaoContinuadaEducacaoRelacoesEticoRaciais) {
-            $arrayCourses[] = FormacaoContinuada::CRECHE;
+            $arrayCourses[] = FormacaoContinuada::RELACOES_ETNICO_RACIAIS;
         }
 
         if ($this->model->formacaoContinuadaEducacaoGestaoEscolar) {

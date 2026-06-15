@@ -133,11 +133,9 @@ class Registro10Model extends Registro10
         $this->acessoInternetAlunos = $arrayColumns[113];
         $this->acessoInternetComunidade = $arrayColumns[114];
         $this->acessoInternetNaoPossui = $arrayColumns[115];
-        $this->equipamentosAlunosAcessoInternet = $arrayColumns[116];
+        $this->mapEquipamentosInternetAlunos($arrayColumns[116]);
         $this->acessoInternet = $arrayColumns[117] ?: null;
-        $this->redeLocalCabo = $arrayColumns[118];
-        $this->redeLocalWireless = null;
-        $this->redeLocalNaoExiste = null;
+        $this->mapRedeLocal($arrayColumns[118]);
         $this->qtdAgronomosHorticultores = $arrayColumns[119];
         $this->qtdAssistenteSocial = $arrayColumns[120];
         $this->qtdAuxiliarAdministrativo = $arrayColumns[121];
@@ -179,9 +177,7 @@ class Registro10Model extends Registro10
         $this->instrumentosPedagogicosEducacaoQuilombola = $arrayColumns[157];
         $this->instrumentosPedagogicosEducacaoEspecial = $arrayColumns[158];
         $this->instrumentosPedagogicosNenhum = $arrayColumns[159];
-        $this->educacaoIndigena = (int) $arrayColumns[160];
-        $this->linguaIndigena = $arrayColumns[160];
-        $this->linguaPortuguesa = $arrayColumns[160];
+        $this->mapLinguaMinistradaEnsino($arrayColumns[160]);
         $this->linguaIndigena1 = $arrayColumns[161];
         $this->linguaIndigena2 = $arrayColumns[162];
         $this->linguaIndigena3 = $arrayColumns[163];
@@ -209,5 +205,43 @@ class Registro10Model extends Registro10
         $this->acaoEventos = $arrayColumns[185];
         $this->acaoProjetoInterdisciplinares = $arrayColumns[186];
         $this->acaoAmbientalNenhuma = $arrayColumns[187];
+    }
+
+    private function mapEquipamentosInternetAlunos($valor): void
+    {
+        $this->computadoresMesaAcessoInternet = null;
+        $this->dispositovosPessoaisAcessoInternet = null;
+
+        if ($valor === '' || $valor === null) {
+            return;
+        }
+
+        $valor = (int) $valor;
+        $this->computadoresMesaAcessoInternet = in_array($valor, [1, 3], true) ? 1 : 0;
+        $this->dispositovosPessoaisAcessoInternet = in_array($valor, [2, 3], true) ? 1 : 0;
+    }
+
+    private function mapRedeLocal($valor): void
+    {
+        $this->redeLocalNaoExiste = null;
+        $this->redeLocalCabo = null;
+        $this->redeLocalWireless = null;
+
+        if ($valor === '' || $valor === null) {
+            return;
+        }
+
+        $valor = (int) $valor;
+        $this->redeLocalNaoExiste = $valor === 0 ? 1 : 0;
+        $this->redeLocalCabo = in_array($valor, [1, 3], true) ? 1 : 0;
+        $this->redeLocalWireless = in_array($valor, [2, 3], true) ? 1 : 0;
+    }
+
+    private function mapLinguaMinistradaEnsino($valor): void
+    {
+        $valor = (int) $valor;
+        $this->educacaoIndigena = in_array($valor, [1, 2, 3], true) ? 1 : 0;
+        $this->linguaIndigena = in_array($valor, [1, 3], true) ? 1 : 0;
+        $this->linguaPortuguesa = in_array($valor, [2, 3], true) ? 1 : 0;
     }
 }
