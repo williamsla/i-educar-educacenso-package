@@ -263,13 +263,17 @@ class Registro30Import implements RegistroImportInterface
         }
 
         if (EmployeeInep::where('cod_docente_inep', $this->model->inepPessoa)
+            ->where('cod_servidor', '!=', $employee->getKey())
             ->exists()) {
             return;
         }
 
+        EmployeeInep::where('cod_servidor', $employee->getKey())->delete();
+
         EmployeeInep::create([
             'cod_servidor' => $employee->getKey(),
             'cod_docente_inep' => $this->model->inepPessoa,
+            'nome_inep' => $this->model->nomePessoa,
         ]);
     }
 

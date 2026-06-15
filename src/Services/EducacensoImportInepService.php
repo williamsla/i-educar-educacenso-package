@@ -111,11 +111,18 @@ class EducacensoImportInepService
 
     private function updateEmployee($id, $inep): void
     {
-        $doesntExist = Employee::query()->whereKey($id)->doesntExist();
-        if ($doesntExist) {
+        $employee = Employee::query()->with('person')->find($id);
+        if (empty($employee)) {
             return;
         }
-        EmployeeInep::query()->updateOrCreate(['cod_servidor' => $id], ['cod_docente_inep' => $inep]);
+
+        EmployeeInep::query()->where('cod_servidor', $id)->delete();
+
+        EmployeeInep::query()->create([
+            'cod_servidor' => $id,
+            'cod_docente_inep' => $inep,
+            'nome_inep' => $employee->person?->nome,
+        ]);
     }
 
     private function updateStudent($id, $inep, $inepSchoolClass, $matricula): void
