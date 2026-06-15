@@ -3,6 +3,7 @@
 namespace iEducar\Packages\Educacenso\Providers;
 
 use App\Process;
+use iEducar\Packages\Educacenso\Http\Controllers\ExportIdentificationController;
 use iEducar\Packages\Educacenso\Http\Controllers\ExportSituationController;
 use iEducar\Packages\Educacenso\Http\Controllers\ImportInepController;
 use iEducar\Packages\Educacenso\Http\Controllers\ImportRegistrationController;
@@ -39,7 +40,13 @@ class EducacensoProvider extends ServiceProvider
                 ->name('educacenso-export-situation');
             Route::post('/educacenso/export-situation', [ExportSituationController::class, 'store']);
 
+            Route::get('educacenso/export-identification', [ExportIdentificationController::class, 'create'])
+                ->name('educacenso-export-identification');
+            Route::post('/educacenso/export-identification', [ExportIdentificationController::class, 'store']);
+
             Route::view('/impediments', 'educacenso::export.impediments')->name('export.impediments');
+            Route::view('/impediments-identification', 'educacenso::export.identification-impediments')
+                ->name('export.identification.impediments');
 
             Route::resource('educacenso/import-registrations', ImportRegistrationController::class)
                 ->only(['index', 'create', 'store'])
