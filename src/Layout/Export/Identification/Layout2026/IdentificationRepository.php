@@ -45,13 +45,7 @@ class IdentificationRepository extends IdentificationRepositoryContract
                     $query->whereValid();
                 });
             })
-            ->where(function ($query): void {
-                $query->whereDoesntHave('inep');
-                $query->orWhereHas('inep', function ($query): void {
-                    $query->whereNull('cod_aluno_inep');
-                    $query->orWhere('cod_aluno_inep', '');
-                });
-            })
+            ->whereDoesntHave('inep')
             ->orderBy('cod_aluno')
             ->get()
             ->unique('cod_aluno')
