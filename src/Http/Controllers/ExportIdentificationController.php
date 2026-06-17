@@ -4,6 +4,7 @@ namespace iEducar\Packages\Educacenso\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use iEducar\Packages\Educacenso\Http\Requests\ExportIdentificationRequest;
+use iEducar\Packages\Educacenso\Layout\Export\Identification\IdentificationFileBuilder;
 use iEducar\Packages\Educacenso\Layout\Export\Identification\IdentificationRecordFactory;
 use iEducar\Packages\Educacenso\Layout\Export\Identification\IdentificationRepositoryFactory;
 use Illuminate\Support\Facades\Validator;
@@ -44,22 +45,15 @@ class ExportIdentificationController extends Controller
                 ->withInput();
         }
 
-        $name = 'ident_' . $request->get('school_id') . '_' . $request->get('year') . '.txt';
+        $schoolId = (int) $request->get('school_id');
+        $name = IdentificationFileBuilder::buildFileName($schoolId, $year);
+        $content = IdentificationFileBuilder::buildContent($array['alunos']);
 
-        return response()->streamDownload(function () use ($array): void {
-            $handle = fopen('php://output', 'w');
-
-            foreach ($array['alunos'] as $student) {
-                $line = collect(range(1, 9))
-                    ->map(fn (int $field) => $student[(string) $field] ?? '')
-                    ->implode('|') . PHP_EOL;
-
-                fwrite($handle, mb_convert_encoding($line, 'ISO-8859-1', 'UTF-8'));
-            }
-
-            fclose($handle);
+        return response()->streamDownload(function () use ($content): void {
+            echo mb_convert_encoding($content, 'ISO-8859-1', 'UTF-8');
         }, $name, [
             'Content-Type' => 'text/plain; charset=ISO-8859-1',
+            'Content-Disposition' => 'attachment; filename="' . $name . '"',
         ]);
     }
 }

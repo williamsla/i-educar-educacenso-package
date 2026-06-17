@@ -64,6 +64,11 @@
             <button id="export-button" class="btn-green" type="submit">Exportar</button>
         </div>
 
+        <p style="text-align: center; font-size: 12px; font-style: italic; margin-top: 0;">
+            O arquivo será salvo como <strong>ident_codigoEscola_ano.txt</strong>.
+            Antes de enviar ao Educacenso/INEP, renomeie se o navegador adicionar espaços ou parênteses ao nome.
+        </p>
+
         <style>
             #export-button[disabled] {
                 opacity: 0.7;

@@ -3,8 +3,10 @@
 namespace iEducar\Packages\Educacenso\Providers;
 
 use App\Process;
+use iEducar\Packages\Educacenso\Console\InstallImportIdentificationMenuCommand;
 use iEducar\Packages\Educacenso\Http\Controllers\ExportIdentificationController;
 use iEducar\Packages\Educacenso\Http\Controllers\ExportSituationController;
+use iEducar\Packages\Educacenso\Http\Controllers\ImportIdentificationController;
 use iEducar\Packages\Educacenso\Http\Controllers\ImportInepController;
 use iEducar\Packages\Educacenso\Http\Controllers\ImportRegistrationController;
 use iEducar\Packages\Educacenso\Http\Controllers\ImportSituationController;
@@ -28,6 +30,12 @@ class EducacensoProvider extends ServiceProvider
             if (env('LEGACY_SEED_DATA', true)) {
                 $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations/data');
             }
+        }
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                InstallImportIdentificationMenuCommand::class,
+            ]);
         }
 
         $this->loadViewsFrom(__DIR__ . '/../../resources/views', 'educacenso');
@@ -63,6 +71,12 @@ class EducacensoProvider extends ServiceProvider
                 Route::get('create', [ImportSituationController::class, 'create'])->name('educacenso.import.situation.create');
                 Route::post('/', [ImportSituationController::class, 'store'])->name('educacenso.import.situation.store');
                 Route::get('/', [ImportSituationController::class, 'index'])->name('educacenso.import.situation.index');
+            });
+
+            Route::prefix('educacenso/importacao/identificacao')->middleware('can:modify:' . Process::EDUCACENSO_IMPORT_IDENTIFICATION)->group(function (): void {
+                Route::get('create', [ImportIdentificationController::class, 'create'])->name('educacenso.import.identification.create');
+                Route::post('/', [ImportIdentificationController::class, 'store'])->name('educacenso.import.identification.store');
+                Route::get('/', [ImportIdentificationController::class, 'index'])->name('educacenso.import.identification.index');
             });
         });
     }
