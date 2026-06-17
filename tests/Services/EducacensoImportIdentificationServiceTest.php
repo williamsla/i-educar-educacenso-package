@@ -154,7 +154,7 @@ class EducacensoImportIdentificationServiceTest extends TestCase
         $this->assertNull(StudentInep::query()->where('cod_aluno', $otherStudent->getKey())->first());
     }
 
-    public function testImportServiceSkipsWhenInepBelongsToAnotherStudent(): void
+    public function testImportServiceSkipsWhenInepBelongsToUnrelatedStudent(): void
     {
         $student = LegacyStudentFactory::new()->create();
         $otherStudent = LegacyStudentFactory::new()->create();
@@ -182,8 +182,106 @@ class EducacensoImportIdentificationServiceTest extends TestCase
         (new EducacensoImportIdentificationService($import, [$fields]))->execute();
 
         $this->assertNull(StudentInep::query()->where('cod_aluno', $student->getKey())->first());
+        $this->assertDatabaseHas('modules.educacenso_cod_aluno', [
+            'cod_aluno' => $otherStudent->getKey(),
+            'cod_aluno_inep' => $inep,
+        ]);
         $import->refresh();
         $this->assertSame(0, $import->imported_count);
         $this->assertSame(1, $import->skipped_count);
+    }
+
+    public function testImportServiceTransfersInepFromDuplicateStudent(): void
+    {
+        $cpf = '12345678901';
+        $currentStudent = LegacyStudentFactory::new()->create();
+        $currentStudent->individual->update(['cpf' => $cpf]);
+
+        $oldStudent = LegacyStudentFactory::new()->create();
+        $oldStudent->individual->update(['cpf' => $cpf]);
+
+        $inep = '123456789012';
+
+        StudentInep::query()->create([
+            'cod_aluno' => $oldStudent->getKey(),
+            'cod_aluno_inep' => $inep,
+        ]);
+
+        $fields = [
+            (string) $currentStudent->getKey(),
+            $cpf,
+            '',
+            'JOAO DA SILVA',
+            '01/01/2010',
+            'MARIA DA SILVA',
+            '',
+            '3550308',
+            $inep,
+        ];
+
+        $import = EducacensoIdentificationImportFactory::new()->create();
+
+        (new EducacensoImportIdentificationService($import, [$fields]))->execute();
+
+        $this->assertDatabaseHas('modules.educacenso_cod_aluno', [
+            'cod_aluno' => $currentStudent->getKey(),
+            'cod_aluno_inep' => $inep,
+        ]);
+        $this->assertNull(StudentInep::query()->where('cod_aluno', $oldStudent->getKey())->first());
+        $import->refresh();
+        $this->assertSame(1, $import->imported_count);
+        $this->assertSame(0, $import->skipped_count);
+    }
+
+    public function testImportServiceTransfersInepWhenOnlyOneDuplicateHasCpf(): void
+    {
+        $cpf = '12345678901';
+        $birthDate = '2010-01-01';
+
+        $currentStudent = LegacyStudentFactory::new()->create();
+        $currentStudent->individual->update([
+            'cpf' => null,
+            'data_nasc' => $birthDate,
+        ]);
+        $currentStudent->person->update(['nome' => 'JOAO DA SILVA']);
+
+        $oldStudent = LegacyStudentFactory::new()->create();
+        $oldStudent->individual->update([
+            'cpf' => $cpf,
+            'data_nasc' => $birthDate,
+        ]);
+        $oldStudent->person->update(['nome' => 'JOAO DA SILVA']);
+
+        $inep = '123456789012';
+
+        StudentInep::query()->create([
+            'cod_aluno' => $oldStudent->getKey(),
+            'cod_aluno_inep' => $inep,
+        ]);
+
+        $fields = [
+            (string) $currentStudent->getKey(),
+            $cpf,
+            '',
+            'JOAO DA SILVA',
+            '01/01/2010',
+            'MARIA DA SILVA',
+            '',
+            '3550308',
+            $inep,
+        ];
+
+        $import = EducacensoIdentificationImportFactory::new()->create();
+
+        (new EducacensoImportIdentificationService($import, [$fields]))->execute();
+
+        $this->assertDatabaseHas('modules.educacenso_cod_aluno', [
+            'cod_aluno' => $currentStudent->getKey(),
+            'cod_aluno_inep' => $inep,
+        ]);
+        $this->assertNull(StudentInep::query()->where('cod_aluno', $oldStudent->getKey())->first());
+        $import->refresh();
+        $this->assertSame(1, $import->imported_count);
+        $this->assertSame(0, $import->skipped_count);
     }
 }

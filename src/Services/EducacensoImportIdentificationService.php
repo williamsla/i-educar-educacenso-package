@@ -9,6 +9,7 @@ use App\Services\NotificationService;
 use Generator;
 use iEducar\Packages\Educacenso\Enums\EducacensoImportStatus;
 use iEducar\Packages\Educacenso\Exception\ImportIdentificationException;
+use iEducar\Packages\Educacenso\Layout\Export\Identification\IdentificationFormatter;
 use iEducar\Packages\Educacenso\Models\EducacensoIdentificationImport;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
@@ -18,10 +19,13 @@ class EducacensoImportIdentificationService
 
     private int $skippedCount = 0;
 
+    private IdentificationFormatter $formatter;
+
     public function __construct(
         private EducacensoIdentificationImport $import,
         private array $lines
     ) {
+        $this->formatter = new IdentificationFormatter();
     }
 
     /**
@@ -109,6 +113,13 @@ class EducacensoImportIdentificationService
             ->value('cod_aluno');
 
         if ($existingStudentId && (int) $existingStudentId !== $studentId) {
+            if ($this->areDuplicateStudents($studentId, (int) $existingStudentId, $fields)) {
+                $this->transferInep((int) $existingStudentId, $studentId, $inep);
+                $this->importedCount++;
+
+                return;
+            }
+
             $this->skippedCount++;
 
             return;
@@ -120,6 +131,128 @@ class EducacensoImportIdentificationService
         );
 
         $this->importedCount++;
+    }
+
+    private function transferInep(int $fromStudentId, int $toStudentId, string $inep): void
+    {
+        StudentInep::query()->where('cod_aluno', $fromStudentId)->delete();
+
+        StudentInep::query()->updateOrCreate(
+            ['cod_aluno' => $toStudentId],
+            ['cod_aluno_inep' => $inep]
+        );
+    }
+
+    private function areDuplicateStudents(int $targetStudentId, int $existingStudentId, array $fields): bool
+    {
+        $students = LegacyStudent::query()
+            ->with([
+                'person:idpes,nome',
+                'individual:idpes,cpf,data_nasc',
+                'document:idpes,certidao_nascimento',
+            ])
+            ->whereIn('cod_aluno', [$targetStudentId, $existingStudentId])
+            ->get()
+            ->keyBy('cod_aluno');
+
+        $targetStudent = $students->get($targetStudentId);
+        $existingStudent = $students->get($existingStudentId);
+
+        if ($targetStudent === null || $existingStudent === null) {
+            return false;
+        }
+
+        if ((int) $targetStudent->ref_idpes === (int) $existingStudent->ref_idpes) {
+            return true;
+        }
+
+        $targetCpf = $this->normalizeCpf($targetStudent->individual?->cpf);
+        $existingCpf = $this->normalizeCpf($existingStudent->individual?->cpf);
+        $cpfFromFile = $this->normalizeCpf(self::field($fields, 2));
+
+        if ($targetCpf !== null && $targetCpf === $existingCpf) {
+            return true;
+        }
+
+        if ($cpfFromFile !== null && $targetCpf !== null && $existingCpf !== null
+            && $cpfFromFile === $targetCpf && $cpfFromFile === $existingCpf) {
+            return true;
+        }
+
+        $targetCertificate = $this->normalizeBirthCertificate($targetStudent->document?->certidao_nascimento);
+        $existingCertificate = $this->normalizeBirthCertificate($existingStudent->document?->certidao_nascimento);
+        $certificateFromFile = $this->normalizeBirthCertificate(self::field($fields, 3));
+
+        if ($targetCertificate !== null && $targetCertificate === $existingCertificate) {
+            return true;
+        }
+
+        if ($certificateFromFile !== null
+            && $this->certificateMatches($targetStudent, $certificateFromFile)
+            && $this->certificateMatches($existingStudent, $certificateFromFile)) {
+            return true;
+        }
+
+        if ($this->studentMatchesNameAndBirthDate($targetStudent, $fields)
+            && $this->studentMatchesNameAndBirthDate($existingStudent, $fields)) {
+            return true;
+        }
+
+        if ($cpfFromFile !== null && $existingCpf !== null && $cpfFromFile === $existingCpf
+            && $this->studentMatchesNameAndBirthDate($targetStudent, $fields)) {
+            return true;
+        }
+
+        if ($cpfFromFile !== null && $targetCpf !== null && $cpfFromFile === $targetCpf
+            && $this->studentMatchesNameAndBirthDate($existingStudent, $fields)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function studentMatchesNameAndBirthDate(LegacyStudent $student, array $fields): bool
+    {
+        $fileName = self::field($fields, 4);
+        $fileBirthDate = self::field($fields, 5);
+
+        if ($fileName === '' || $fileBirthDate === '') {
+            return false;
+        }
+
+        $studentName = $this->formatter->formatName($student->person?->nome);
+        $studentBirthDate = $this->formatter->formatBirthDate($student->individual?->data_nasc);
+
+        return $studentName === $fileName && $studentBirthDate === $fileBirthDate;
+    }
+
+    private function certificateMatches(LegacyStudent $student, string $certificate): bool
+    {
+        $studentCertificate = $this->normalizeBirthCertificate($student->document?->certidao_nascimento);
+
+        return $studentCertificate !== null && $studentCertificate === $certificate;
+    }
+
+    private function normalizeBirthCertificate(?string $certificate): ?string
+    {
+        if ($certificate === null || trim($certificate) === '') {
+            return null;
+        }
+
+        $certificate = $this->formatter->formatBirthCertificate($certificate);
+
+        return $certificate === '' ? null : $certificate;
+    }
+
+    private function normalizeCpf(?string $cpf): ?string
+    {
+        $cpf = clearInt($cpf) ?? '';
+
+        if (strlen($cpf) !== 11 || ! ctype_digit($cpf)) {
+            return null;
+        }
+
+        return $cpf;
     }
 
     private function resolveStudentId(array $fields): ?int
