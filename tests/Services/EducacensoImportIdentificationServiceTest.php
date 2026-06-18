@@ -91,6 +91,13 @@ class EducacensoImportIdentificationServiceTest extends TestCase
         $import->refresh();
         $this->assertSame(0, $import->imported_count);
         $this->assertSame(1, $import->skipped_count);
+        $this->assertSame([
+            [
+                'student_code' => (string) $student->getKey(),
+                'name' => 'JOAO DA SILVA',
+                'reason' => 'MEC não retornou código INEP no campo 9',
+            ],
+        ], $import->skipped_lines);
     }
 
     public function testImportServiceUpdatesStudentInepByCpfWhenCodAlunoDoesNotExist(): void

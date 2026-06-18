@@ -15,9 +15,20 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 class EducacensoImportIdentificationService
 {
+    private const REASON_EMPTY_INEP = 'MEC não retornou código INEP no campo 9';
+
+    private const REASON_INVALID_INEP = 'Código INEP inválido no campo 9';
+
+    private const REASON_STUDENT_NOT_FOUND = 'Aluno não encontrado no i-educar';
+
+    private const REASON_INEP_ON_OTHER_STUDENT = 'Código INEP já vinculado a outro aluno sem cadastro duplicado identificado';
+
     private int $importedCount = 0;
 
     private int $skippedCount = 0;
+
+    /** @var array<int, array{student_code: string, name: string, reason: string}> */
+    private array $skippedLines = [];
 
     private IdentificationFormatter $formatter;
 
@@ -70,6 +81,7 @@ class EducacensoImportIdentificationService
             'status_id' => EducacensoImportStatus::SUCCESS,
             'imported_count' => $this->importedCount,
             'skipped_count' => $this->skippedCount,
+            'skipped_lines' => $this->skippedLines,
         ]);
 
         $this->notifyUser();
@@ -81,6 +93,7 @@ class EducacensoImportIdentificationService
             'status_id' => EducacensoImportStatus::ERROR,
             'imported_count' => $this->importedCount,
             'skipped_count' => $this->skippedCount,
+            'skipped_lines' => $this->skippedLines,
         ]);
     }
 
@@ -89,13 +102,13 @@ class EducacensoImportIdentificationService
         $inep = self::field($fields, 9);
 
         if ($inep === '') {
-            $this->skippedCount++;
+            $this->skip($fields, self::REASON_EMPTY_INEP);
 
             return;
         }
 
         if (! ctype_digit($inep) || strlen($inep) !== 12) {
-            $this->skippedCount++;
+            $this->skip($fields, self::REASON_INVALID_INEP);
 
             return;
         }
@@ -103,7 +116,7 @@ class EducacensoImportIdentificationService
         $studentId = $this->resolveStudentId($fields);
 
         if ($studentId === null) {
-            $this->skippedCount++;
+            $this->skip($fields, self::REASON_STUDENT_NOT_FOUND);
 
             return;
         }
@@ -120,7 +133,7 @@ class EducacensoImportIdentificationService
                 return;
             }
 
-            $this->skippedCount++;
+            $this->skip($fields, self::REASON_INEP_ON_OTHER_STUDENT, $studentId);
 
             return;
         }
@@ -300,14 +313,63 @@ class EducacensoImportIdentificationService
         (new NotificationService())->createByUser(
             userId: $this->import->user_id,
             text: $this->getMessage(),
-            link: route('educacenso.import.identification.index'),
+            link: $this->skippedCount > 0
+                ? route('educacenso.import.identification.show', $this->import)
+                : route('educacenso.import.identification.index'),
             type: NotificationType::OTHER
         );
     }
 
+    private function skip(array $fields, string $reason, ?int $studentId = null): void
+    {
+        $this->skippedCount++;
+        $this->skippedLines[] = [
+            'student_code' => self::field($fields, 1),
+            'name' => $this->resolveDisplayName($fields, $studentId),
+            'reason' => $reason,
+        ];
+    }
+
+    private function resolveDisplayName(array $fields, ?int $studentId = null): string
+    {
+        $nameFromFile = self::field($fields, 4);
+
+        if ($nameFromFile !== '') {
+            return $nameFromFile;
+        }
+
+        if ($studentId !== null) {
+            $name = LegacyStudent::query()
+                ->with('person:idpes,nome')
+                ->find($studentId)
+                ?->person
+                ?->nome;
+
+            if (! empty($name)) {
+                return $name;
+            }
+        }
+
+        $studentCode = self::field($fields, 1);
+
+        return $studentCode !== '' ? "Aluno código {$studentCode}" : 'Não identificado';
+    }
+
     private function getMessage(): string
     {
-        return "Importação do arquivo de identificação {$this->import->file_name} finalizada. {$this->importedCount} INEP(s) importado(s), {$this->skippedCount} linha(s) ignorada(s).";
+        $message = "Importação do arquivo de identificação {$this->import->file_name} finalizada. {$this->importedCount} INEP(s) importado(s), {$this->skippedCount} linha(s) ignorada(s).";
+
+        if ($this->skippedLines === []) {
+            return $message;
+        }
+
+        $names = collect($this->skippedLines)
+            ->pluck('name')
+            ->filter()
+            ->unique()
+            ->implode(', ');
+
+        return "{$message} Ignorados: {$names}.";
     }
 
     private static function field(array $fields, int $position): string

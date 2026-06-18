@@ -77,6 +77,7 @@ class EducacensoProvider extends ServiceProvider
                 Route::get('create', [ImportIdentificationController::class, 'create'])->name('educacenso.import.identification.create');
                 Route::post('/', [ImportIdentificationController::class, 'store'])->name('educacenso.import.identification.store');
                 Route::get('/', [ImportIdentificationController::class, 'index'])->name('educacenso.import.identification.index');
+                Route::get('{import}', [ImportIdentificationController::class, 'show'])->name('educacenso.import.identification.show');
             });
         });
     }

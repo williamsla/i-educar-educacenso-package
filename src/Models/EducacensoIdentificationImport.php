@@ -16,6 +16,11 @@ class EducacensoIdentificationImport extends Model
         'status_id',
         'imported_count',
         'skipped_count',
+        'skipped_lines',
+    ];
+
+    protected $casts = [
+        'skipped_lines' => 'array',
     ];
 
     protected static function boot(): void

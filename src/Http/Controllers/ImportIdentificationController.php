@@ -43,6 +43,19 @@ class ImportIdentificationController extends Controller
         return view('educacenso::import-identification.create', compact('years'));
     }
 
+    public function show(EducacensoIdentificationImport $import)
+    {
+        $this->breadcrumb('Importação de Identificação', [
+            url('intranet/educar_educacenso_index.php') => 'Educacenso',
+            route('educacenso.import.identification.index') => 'Histórico',
+        ]);
+        $this->menu(Process::EDUCACENSO_IMPORT_IDENTIFICATION);
+
+        return view('educacenso::import-identification.show', [
+            'import' => $import,
+        ]);
+    }
+
     public function store(EducacensoImportIdentificationRequest $request)
     {
         $files = $request->file('arquivos');
@@ -81,6 +94,6 @@ class ImportIdentificationController extends Controller
 
         return redirect()
             ->route('educacenso.import.identification.index')
-            ->with('success', "Iniciado o processamento de {$fileCount} arquivo(s) de identificação.");
+            ->with('success', "Iniciado o processamento de {$fileCount} arquivo(s) de identificação. Consulte o histórico para ver os alunos ignorados, se houver.");
     }
 }
