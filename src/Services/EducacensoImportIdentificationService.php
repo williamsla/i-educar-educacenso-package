@@ -174,8 +174,9 @@ class EducacensoImportIdentificationService
             return true;
         }
 
-        if ($cpfFromFile !== null && $targetCpf !== null && $existingCpf !== null
-            && $cpfFromFile === $targetCpf && $cpfFromFile === $existingCpf) {
+        // O CPF do arquivo identifica a pessoa; o campo 1 indica o cadastro atual da escola.
+        // Se o INEP está no cadastro antigo com o mesmo CPF do arquivo, trata como duplicata.
+        if ($cpfFromFile !== null && $existingCpf !== null && $cpfFromFile === $existingCpf) {
             return true;
         }
 
@@ -194,16 +195,6 @@ class EducacensoImportIdentificationService
         }
 
         if ($this->studentMatchesNameAndBirthDate($targetStudent, $fields)
-            && $this->studentMatchesNameAndBirthDate($existingStudent, $fields)) {
-            return true;
-        }
-
-        if ($cpfFromFile !== null && $existingCpf !== null && $cpfFromFile === $existingCpf
-            && $this->studentMatchesNameAndBirthDate($targetStudent, $fields)) {
-            return true;
-        }
-
-        if ($cpfFromFile !== null && $targetCpf !== null && $cpfFromFile === $targetCpf
             && $this->studentMatchesNameAndBirthDate($existingStudent, $fields)) {
             return true;
         }
@@ -246,6 +237,10 @@ class EducacensoImportIdentificationService
 
     private function normalizeCpf(?string $cpf): ?string
     {
+        if ($cpf === null || trim($cpf) === '') {
+            return null;
+        }
+
         $cpf = clearInt($cpf) ?? '';
 
         if (strlen($cpf) !== 11 || ! ctype_digit($cpf)) {

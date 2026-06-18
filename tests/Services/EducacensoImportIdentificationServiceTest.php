@@ -284,4 +284,44 @@ class EducacensoImportIdentificationServiceTest extends TestCase
         $this->assertSame(1, $import->imported_count);
         $this->assertSame(0, $import->skipped_count);
     }
+
+    public function testImportServiceTransfersInepWhenFileCpfMatchesOldDuplicateOnly(): void
+    {
+        $cpf = '12345678901';
+
+        $currentStudent = LegacyStudentFactory::new()->create();
+        $currentStudent->individual->update(['cpf' => null]);
+
+        $oldStudent = LegacyStudentFactory::new()->create();
+        $oldStudent->individual->update(['cpf' => $cpf]);
+
+        $inep = '123456789012';
+
+        StudentInep::query()->create([
+            'cod_aluno' => $oldStudent->getKey(),
+            'cod_aluno_inep' => $inep,
+        ]);
+
+        $fields = [
+            (string) $currentStudent->getKey(),
+            $cpf,
+            '',
+            'NOME DIFERENTE NO ARQUIVO',
+            '01/01/2010',
+            '',
+            '',
+            '3550308',
+            $inep,
+        ];
+
+        $import = EducacensoIdentificationImportFactory::new()->create();
+
+        (new EducacensoImportIdentificationService($import, [$fields]))->execute();
+
+        $this->assertDatabaseHas('modules.educacenso_cod_aluno', [
+            'cod_aluno' => $currentStudent->getKey(),
+            'cod_aluno_inep' => $inep,
+        ]);
+        $this->assertNull(StudentInep::query()->where('cod_aluno', $oldStudent->getKey())->first());
+    }
 }
