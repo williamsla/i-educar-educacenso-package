@@ -6,16 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\SchoolInep;
 use App\Process;
 use Carbon\Carbon;
-use Exception;
 use iEducar\Packages\Educacenso\Enums\EducacensoInepImportLayout;
 use iEducar\Packages\Educacenso\Exception\ImportInepException;
 use iEducar\Packages\Educacenso\Http\Requests\EducacensoImportInepRequest;
 use iEducar\Packages\Educacenso\Jobs\EducacensoInepImportJob;
 use iEducar\Packages\Educacenso\Models\EducacensoInepImport;
+use iEducar\Packages\Educacenso\Services\EducacensoImportErrorMessage;
 use iEducar\Packages\Educacenso\Services\EducacensoImportInepService;
 use iEducar\Packages\Educacenso\Services\EducacensoImportInepSpreadsheetParser;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Throwable;
 
 class ImportInepController extends Controller
 {
@@ -88,11 +89,11 @@ class ImportInepController extends Controller
             foreach ($jobs as $job) {
                 EducacensoInepImportJob::dispatch(...$job);
             }
-        } catch (Exception $exception) {
+        } catch (Throwable $exception) {
             DB::rollBack();
 
             return redirect(route('educacenso.import.inep.create'))
-                ->with('error', $exception instanceof ImportInepException ? $exception->getMessage() : 'Não foi possível realizar a importação!');
+                ->with('error', EducacensoImportErrorMessage::fromThrowable($exception));
         }
 
 

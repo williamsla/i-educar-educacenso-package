@@ -13,6 +13,7 @@ use Database\Factories\LegacySchoolGradeFactory;
 use Database\Factories\LegacyStudentFactory;
 use Database\Factories\SchoolInepFactory;
 use iEducar\Packages\Educacenso\Database\Factories\EducacensoInepImportFactory;
+use iEducar\Packages\Educacenso\Services\EducacensoInepIdentityMatcher;
 use iEducar\Packages\Educacenso\Services\EducacensoImportInepService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
@@ -146,6 +147,60 @@ class EducacensoImportInepByIdentityTest extends TestCase
         (new EducacensoImportInepService($import, $data))->execute();
 
         $this->assertNull(SchoolClassInep::query()->where('cod_turma', $schoolClass->getKey())->first());
+    }
+
+    public function testCpfVariantsDoNotIncludeFormattedValues(): void
+    {
+        $matcher = new EducacensoInepIdentityMatcher(2026, '27011704', 'ESCOLA MUNICIPAL GETULIO VARGAS');
+
+        $variants = $matcher->cpfVariants('066.610.294-55');
+
+        $this->assertNotEmpty($variants);
+        $this->assertContains('06661029455', $variants);
+        $this->assertContains('6661029455', $variants);
+
+        foreach ($variants as $variant) {
+            $this->assertMatchesRegularExpression('/^\d+$/', $variant);
+        }
+    }
+
+    public function testUpdatesSchoolClassInepWhenMultipleClassesShareTheWordAno(): void
+    {
+        $school = $this->createSchool('ESCOLA MUNICIPAL JOAO MATEUS', '27011739');
+        $institution = $school->ref_cod_instituicao;
+        $grade = LegacyGradeFactory::new()->create();
+        LegacySchoolGradeFactory::new()->create([
+            'ref_cod_escola' => $school->getKey(),
+            'ref_cod_serie' => $grade->id,
+        ]);
+        $firstYear = LegacySchoolClassFactory::new()->create([
+            'nm_turma' => '1º ANO',
+            'ano' => 2025,
+            'ref_ref_cod_serie' => $grade->id,
+            'ref_ref_cod_escola' => $school->getKey(),
+            'ref_cod_instituicao' => $institution,
+        ]);
+        $thirdYear = LegacySchoolClassFactory::new()->create([
+            'nm_turma' => '3º ANO',
+            'ano' => 2025,
+            'ref_ref_cod_serie' => $grade->id,
+            'ref_ref_cod_escola' => $school->getKey(),
+            'ref_cod_instituicao' => $institution,
+        ]);
+
+        $import = EducacensoInepImportFactory::new()->create(['year' => 2025]);
+        $data = [
+            '00|27011739|1|24/02/2025|31/12/2025|ESCOLA MUNICIPAL JOAO MATEUS||||||',
+            '20|27011739||32597944|3º ANO|1||',
+        ];
+
+        (new EducacensoImportInepService($import, $data))->execute();
+
+        $this->assertDatabaseHas('modules.educacenso_cod_turma', [
+            'cod_turma' => $thirdYear->getKey(),
+            'cod_turma_inep' => '32597944',
+        ]);
+        $this->assertNull(SchoolClassInep::query()->where('cod_turma', $firstYear->getKey())->first());
     }
 
     /**

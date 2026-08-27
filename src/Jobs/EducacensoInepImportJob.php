@@ -3,6 +3,7 @@
 namespace iEducar\Packages\Educacenso\Jobs;
 
 use iEducar\Packages\Educacenso\Models\EducacensoInepImport;
+use iEducar\Packages\Educacenso\Services\EducacensoImportErrorMessage;
 use iEducar\Packages\Educacenso\Services\EducacensoImportInepService;
 use iEducar\Packages\Educacenso\Services\EducacensoImportInepSpreadsheetService;
 use Illuminate\Bus\Queueable;
@@ -11,6 +12,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class EducacensoInepImportJob implements ShouldQueue
@@ -28,6 +30,8 @@ class EducacensoInepImportJob implements ShouldQueue
 
     public function handle(): void
     {
+        set_time_limit(0);
+
         $this->setConnection();
 
         if (isset($this->data['layout'])) {
@@ -46,15 +50,25 @@ class EducacensoInepImportJob implements ShouldQueue
 
     public function failed(Throwable $exception): void
     {
+        Log::error('Falha no job de importação de INEP.', [
+            'import_id' => $this->educacensoInepImport->getKey(),
+            'school' => $this->educacensoInepImport->school_name,
+            'message' => $exception->getMessage(),
+            'file' => $exception->getFile(),
+            'line' => $exception->getLine(),
+        ]);
+
         $this->setConnection();
 
+        $errorMessage = EducacensoImportErrorMessage::fromThrowable($exception);
+
         if (isset($this->data['layout'])) {
-            (new EducacensoImportInepSpreadsheetService($this->educacensoInepImport, $this->data))->failed();
+            (new EducacensoImportInepSpreadsheetService($this->educacensoInepImport, $this->data))->failed($errorMessage);
 
             return;
         }
 
-        (new EducacensoImportInepService($this->educacensoInepImport, $this->data))->failed();
+        (new EducacensoImportInepService($this->educacensoInepImport, $this->data))->failed($errorMessage);
     }
 
     public function tags()

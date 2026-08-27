@@ -254,18 +254,12 @@ class EducacensoInepIdentityMatcher
             return [];
         }
 
-        $formatted = vsprintf('%s.%s.%s-%s', [
-            substr($digits, 0, 3),
-            substr($digits, 3, 3),
-            substr($digits, 6, 3),
-            substr($digits, 9, 2),
-        ]);
-
+        // cadastro.fisica.cpf is numeric(11,0). Values with dots/hyphens make PostgreSQL throw
+        // "invalid input syntax for type numeric" and abort the whole import.
         return array_values(array_unique([
             $digits,
             ltrim($digits, '0') ?: '0',
             (string) (int) $digits,
-            $formatted,
         ]));
     }
 
@@ -321,7 +315,7 @@ class EducacensoInepIdentityMatcher
     public function normalizeName(?string $name): string
     {
         $name = $this->decode((string) $name);
-        $formatted = $this->formatter->formatName($name) ?? '';
+        $formatted = $this->formatter->convertStringToCenso($name) ?? '';
 
         return trim(preg_replace('/\s+/', ' ', $formatted) ?? '');
     }

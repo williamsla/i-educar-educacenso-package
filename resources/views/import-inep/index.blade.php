@@ -5,9 +5,13 @@
 @endpush
 
 @section('content')
+    @if(session('error'))
+        <p style="text-align: center; margin-bottom: 15px; color: #a94442;">{{ session('error') }}</p>
+    @endif
+
     <table class="table-default">
         <tr class="titulo-tabela-listagem">
-            <th colspan="6">Importações - Listagem</th>
+            <th colspan="5">Importações - Listagem</th>
         </tr>
         <tr>
             <td style="font-weight:bold;">Ano</td>
@@ -34,6 +38,13 @@
                     {{ $import->status }}
                 </td>
             </tr>
+            @if($import->detail)
+                <tr>
+                    <td colspan="5" style="font-size: 12px; background: #f8d7da; padding: 10px; color: #721c24;">
+                        <strong>Motivo:</strong> {{ $import->detail }}
+                    </td>
+                </tr>
+            @endif
         @empty
             <tr>
                 <td colspan="5" align=center>Não há informação para ser apresentada</td>

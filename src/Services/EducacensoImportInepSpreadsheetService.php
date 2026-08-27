@@ -7,6 +7,8 @@ use App\Services\NotificationService;
 use iEducar\Packages\Educacenso\Enums\EducacensoInepImportLayout;
 use iEducar\Packages\Educacenso\Enums\EducacensoImportStatus;
 use iEducar\Packages\Educacenso\Models\EducacensoInepImport;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class EducacensoImportInepSpreadsheetService
 {
@@ -36,51 +38,74 @@ class EducacensoImportInepSpreadsheetService
         $importedPeople = [];
         $importedClasses = [];
 
-        foreach ($this->data['rows'] as $row) {
-            $inep = $row['inep'];
+        foreach ($this->data['rows'] as $index => $row) {
+            try {
+                $inep = $row['inep'];
 
-            if ($inep !== '' && ! isset($importedPeople[$inep])) {
-                if ($isStudentSheet) {
-                    $student = $this->matcher->findStudent($row['cpf'], $row['name'], $row['birth_date']);
-                    if ($student !== null) {
-                        $this->matcher->saveStudentInep($student, $inep);
+                if ($inep !== '' && ! isset($importedPeople[$inep])) {
+                    if ($isStudentSheet) {
+                        $student = $this->matcher->findStudent($row['cpf'], $row['name'], $row['birth_date']);
+                        if ($student !== null) {
+                            $this->matcher->saveStudentInep($student, $inep);
+                        }
+                    } else {
+                        $employee = $this->matcher->findEmployee($row['cpf'], $row['name'], $row['birth_date']);
+                        if ($employee !== null) {
+                            $this->matcher->saveEmployeeInep($employee, $inep);
+                        }
                     }
-                } else {
-                    $employee = $this->matcher->findEmployee($row['cpf'], $row['name'], $row['birth_date']);
-                    if ($employee !== null) {
-                        $this->matcher->saveEmployeeInep($employee, $inep);
-                    }
+
+                    $importedPeople[$inep] = true;
                 }
 
-                $importedPeople[$inep] = true;
-            }
+                $classInep = $row['class_inep'];
+                $className = $row['class_name'];
+                $classKey = $classInep . '|' . $className;
 
-            $classInep = $row['class_inep'];
-            $className = $row['class_name'];
-            $classKey = $classInep . '|' . $className;
-
-            if ($classInep !== '' && $className !== '' && ! isset($importedClasses[$classKey])) {
-                $this->matcher->updateSchoolClassByName($className, $classInep);
-                $importedClasses[$classKey] = true;
+                if ($classInep !== '' && $className !== '' && ! isset($importedClasses[$classKey])) {
+                    $this->matcher->updateSchoolClassByName($className, $classInep);
+                    $importedClasses[$classKey] = true;
+                }
+            } catch (Throwable $exception) {
+                Log::error('Falha ao importar INEP da planilha.', [
+                    'import_id' => $this->educacensoInepImport->getKey(),
+                    'row' => $index + 1,
+                    'inep' => $row['inep'] ?? null,
+                    'message' => $exception->getMessage(),
+                ]);
             }
         }
 
         $this->educacensoInepImport->update([
             'status_id' => EducacensoImportStatus::SUCCESS,
+            'error_message' => null,
         ]);
 
-        (new NotificationService())->createByUser(
-            userId: $this->educacensoInepImport->user_id,
-            text: "Foram importados os INEPs da escola {$this->data['school_name']}. Clique aqui para visualizar.",
-            link: route('educacenso.import.inep.index'),
-            type: NotificationType::OTHER
-        );
+        $this->notifyUser();
     }
 
-    public function failed(): void
+    private function notifyUser(): void
+    {
+        try {
+            (new NotificationService())->createByUser(
+                userId: $this->educacensoInepImport->user_id,
+                text: "Foram importados os INEPs da escola {$this->data['school_name']}. Clique aqui para visualizar.",
+                link: route('educacenso.import.inep.index'),
+                type: NotificationType::OTHER
+            );
+        } catch (Throwable $exception) {
+            Log::warning('Não foi possível notificar o usuário após importar INEPs da planilha.', [
+                'import_id' => $this->educacensoInepImport->getKey(),
+                'message' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    public function failed(?string $errorMessage = null): void
     {
         $this->educacensoInepImport->update([
             'status_id' => EducacensoImportStatus::ERROR,
+            'error_message' => $errorMessage,
         ]);
     }
 }

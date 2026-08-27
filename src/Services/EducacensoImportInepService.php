@@ -15,8 +15,10 @@ use App\Services\NotificationService;
 use Generator;
 use iEducar\Packages\Educacenso\Enums\EducacensoImportStatus;
 use iEducar\Packages\Educacenso\Models\EducacensoInepImport;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Throwable;
 
 class EducacensoImportInepService
 {
@@ -261,17 +263,25 @@ class EducacensoImportInepService
     {
         $this->educacensoInepImport->update([
             'status_id' => EducacensoImportStatus::SUCCESS,
+            'error_message' => null,
         ]);
     }
 
     private function notifyUser(): void
     {
-        (new NotificationService())->createByUser(
-            userId: $this->educacensoInepImport->user_id,
-            text: $this->getMessage(),
-            link: route('educacenso.import.inep.index'),
-            type: NotificationType::OTHER
-        );
+        try {
+            (new NotificationService())->createByUser(
+                userId: $this->educacensoInepImport->user_id,
+                text: $this->getMessage(),
+                link: route('educacenso.import.inep.index'),
+                type: NotificationType::OTHER
+            );
+        } catch (Throwable $exception) {
+            Log::warning('Não foi possível notificar o usuário após importar INEPs.', [
+                'import_id' => $this->educacensoInepImport->getKey(),
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function getMessage(): string
@@ -279,10 +289,11 @@ class EducacensoImportInepService
         return "Foram importados os INEPs da escola {$this->schoolName}. Clique aqui para visualizar.";
     }
 
-    public function failed(): void
+    public function failed(?string $errorMessage = null): void
     {
         $this->educacensoInepImport->update([
             'status_id' => EducacensoImportStatus::ERROR,
+            'error_message' => $errorMessage,
         ]);
     }
 }
