@@ -22,7 +22,14 @@ class EducacensoImportInepService
 {
     private string $schoolName;
 
+    private string $schoolInep = '';
+
     private string $dataBaseEducacenso;
+
+    private EducacensoInepIdentityMatcher $matcher;
+
+    /** @var array<string, true> */
+    private array $studentIneps = [];
 
     public function __construct(private EducacensoInepImport $educacensoInepImport, private array $data)
     {
@@ -51,32 +58,112 @@ class EducacensoImportInepService
     {
         $handle = fopen($file, 'r');
         while (($line = fgets($handle)) !== false) {
-            yield $line;
+            yield rtrim($line, "\r\n");
         }
     }
 
     public function execute(): void
     {
         $schoolData = explode('|', $this->data[0]);
-        $this->schoolName = $schoolData[5];
+        $this->schoolInep = trim((string) ($schoolData[1] ?? ''));
+        $this->schoolName = trim(html_entity_decode((string) ($schoolData[5] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $this->matcher = new EducacensoInepIdentityMatcher(
+            (int) $this->educacensoInepImport->year,
+            $this->schoolInep,
+            $this->schoolName,
+        );
+        $this->studentIneps = $this->collectStudentIneps();
+
         foreach ($this->data as $line) {
             $lineArray = explode('|', $line);
-            $register = $lineArray[0];
-            $id = $lineArray[2] ?? null;
-            $inep = $lineArray[3] ?? null;
-            $inepSchoolClass = $lineArray[5] ?? null;
-            $matricula = $lineArray[6] ?? null;
-            if (! empty($id) && ! empty($inep)) {
-                match ($register) {
-                    '20' => $this->updateSchoolClass($id, $inep),
-                    '40', '50' => $this->updateEmployee($id, $inep),
-                    '60' => $this->updateStudent($id, $inep, $inepSchoolClass, $matricula),
-                    default => null
-                };
+            $register = $lineArray[0] ?? '';
+            $id = trim((string) ($lineArray[2] ?? ''));
+            $inep = trim((string) ($lineArray[3] ?? ''));
+
+            if ($register === '20') {
+                $this->importSchoolClass($id, $inep, $this->matcher->decode((string) ($lineArray[4] ?? '')));
+
+                continue;
+            }
+
+            if ($register === '30') {
+                $this->importStudentByIdentity($lineArray);
+
+                continue;
+            }
+
+            if (in_array($register, ['40', '50'], true) && $id !== '' && $inep !== '') {
+                $this->updateEmployee($id, $inep);
+
+                continue;
+            }
+
+            if ($register === '60' && $id !== '' && $inep !== '') {
+                $this->updateStudent($id, $inep, $lineArray[5] ?? null, $lineArray[6] ?? null);
             }
         }
         $this->updateImporter();
         $this->notifyUser();
+    }
+
+    private function importSchoolClass(string $id, string $inep, string $className): void
+    {
+        if ($inep === '') {
+            return;
+        }
+
+        if ($id !== '') {
+            $this->updateSchoolClass($id, $inep);
+
+            return;
+        }
+
+        $this->matcher->updateSchoolClassByName($className, $inep);
+    }
+
+    private function importStudentByIdentity(array $fields): void
+    {
+        $inep = trim((string) ($fields[3] ?? ''));
+
+        if ($inep === '' || ! isset($this->studentIneps[$inep])) {
+            return;
+        }
+
+        $cpf = trim((string) ($fields[4] ?? ''));
+        $name = $this->matcher->decode((string) ($fields[5] ?? ''));
+        $birthDate = trim((string) ($fields[6] ?? ''));
+
+        $student = $this->matcher->findStudent($cpf, $name, $birthDate);
+
+        if ($student === null) {
+            return;
+        }
+
+        $this->matcher->saveStudentInep($student, $inep);
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private function collectStudentIneps(): array
+    {
+        $ineps = [];
+
+        foreach ($this->data as $line) {
+            $fields = explode('|', $line);
+
+            if (($fields[0] ?? '') !== '60') {
+                continue;
+            }
+
+            $inep = trim((string) ($fields[3] ?? ''));
+
+            if ($inep !== '') {
+                $ineps[$inep] = true;
+            }
+        }
+
+        return $ineps;
     }
 
     private function updateSchoolClass($id, $inep): void
