@@ -7,11 +7,13 @@ use App\Models\SchoolInep;
 use App\Process;
 use Carbon\Carbon;
 use Exception;
+use iEducar\Packages\Educacenso\Enums\EducacensoInepImportLayout;
 use iEducar\Packages\Educacenso\Exception\ImportInepException;
 use iEducar\Packages\Educacenso\Http\Requests\EducacensoImportInepRequest;
 use iEducar\Packages\Educacenso\Jobs\EducacensoInepImportJob;
 use iEducar\Packages\Educacenso\Models\EducacensoInepImport;
 use iEducar\Packages\Educacenso\Services\EducacensoImportInepService;
+use iEducar\Packages\Educacenso\Services\EducacensoImportInepSpreadsheetParser;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -37,18 +39,38 @@ class ImportInepController extends Controller
         $files = $request->file('arquivos');
         $jobs = [];
         $schoolCount = 0;
+        $year = (int) $request->get('ano');
+        $tipo = (string) $request->get('tipo');
         try {
             DB::beginTransaction();
             foreach ($files as $file) {
+                if (in_array($tipo, EducacensoInepImportLayout::spreadsheets(), true)) {
+                    $parsed = EducacensoImportInepSpreadsheetParser::parse($file, $tipo);
+                    $this->validateSpreadsheetYear($parsed['year'], $year, $file->getClientOriginalName());
+                    $this->validateSchoolInep((int) $parsed['school_inep'], $parsed['school_name']);
+                    $educacensoInepImport = EducacensoInepImport::create([
+                        'year' => $year,
+                        'user_id' => $request->user()->getKey(),
+                        'school_name' => $parsed['school_name'],
+                    ]);
+                    $schoolCount++;
+                    $jobs[] = [
+                        $educacensoInepImport,
+                        $parsed,
+                    ];
+
+                    continue;
+                }
+
+                $fileName = $file->getClientOriginalName();
                 $schoolsData = EducacensoImportInepService::getDataBySchool($file);
                 foreach ($schoolsData as $schoolData) {
-                    $schoolLine = explode('|', $schoolData[0]);
-                    $fileDate = $schoolLine[3];
-                    $year = $request->get('ano');
-                    $this->validateFileYear($fileDate, $year);
-                    $schoolInep = $schoolLine[1];
-                    $schoolName = mb_strtoupper($schoolLine[5]);
-                    $this->validateSchoolInep($schoolInep, $schoolName);
+                    $schoolLine = explode('|', $schoolData[0] ?? '');
+                    $schoolInep = $schoolLine[1] ?? '';
+                    $schoolName = mb_strtoupper($schoolLine[5] ?? '');
+                    $fileDate = trim((string) ($schoolLine[3] ?? ''));
+                    $this->validateFileYear($fileDate, $year, $fileName, $schoolInep, $schoolName);
+                    $this->validateSchoolInep((int) $schoolInep, $schoolName);
                     $educacensoInepImport = EducacensoInepImport::create([
                         'year' => $year,
                         'user_id' => $request->user()->getKey(),
@@ -67,6 +89,8 @@ class ImportInepController extends Controller
                 EducacensoInepImportJob::dispatch(...$job);
             }
         } catch (Exception $exception) {
+            DB::rollBack();
+
             return redirect(route('educacenso.import.inep.create'))
                 ->with('error', $exception instanceof ImportInepException ? $exception->getMessage() : 'Não foi possível realizar a importação!');
         }
@@ -83,8 +107,16 @@ class ImportInepController extends Controller
         }
     }
 
-    private function validateFileYear(string $fileDate, int $year): void
+    private function validateFileYear(string $fileDate, int $year, string $fileName, string $schoolInep, string $schoolName): void
     {
+        $origin = $this->describeFileOrigin($fileName, $schoolInep, $schoolName);
+
+        if ($fileDate === '') {
+            throw new ImportInepException(
+                "Não foi possível ler a data de início do ano letivo {$origin}. O 4º campo do registro 00 deve estar no formato dd/mm/aaaa."
+            );
+        }
+
         $validator = Validator::make(['year' => $fileDate], [
             'year' => [
                 'required',
@@ -92,11 +124,43 @@ class ImportInepController extends Controller
             ],
         ]);
         if ($validator->fails()) {
-            throw new ImportInepException('Ocorreu um erro na validação do ano do arquivo importado!');
+            throw new ImportInepException(
+                "A data de início do ano letivo {$origin} é inválida: \"{$fileDate}\". Esperado o formato dd/mm/aaaa no 4º campo do registro 00."
+            );
         }
         $fileYear = Carbon::createFromFormat('d/m/Y', $fileDate)->year;
         if ($year !== $fileYear) {
-            throw new ImportInepException("O ano selecionado foi {$year} mas o arquivo é referente ao ano {$fileYear}");
+            throw new ImportInepException(
+                "O ano selecionado foi {$year}, mas {$origin} é referente ao ano {$fileYear} (data de início do ano letivo: {$fileDate})."
+            );
+        }
+    }
+
+    private function describeFileOrigin(string $fileName, string $schoolInep, string $schoolName): string
+    {
+        $origin = "no arquivo \"{$fileName}\"";
+
+        if ($schoolName !== '' && $schoolInep !== '') {
+            return "{$origin} (escola {$schoolName}, INEP {$schoolInep})";
+        }
+
+        if ($schoolInep !== '') {
+            return "{$origin} (INEP {$schoolInep})";
+        }
+
+        return $origin;
+    }
+
+    private function validateSpreadsheetYear(?int $fileYear, int $year, string $fileName): void
+    {
+        if ($fileYear === null) {
+            return;
+        }
+
+        if ($fileYear !== $year) {
+            throw new ImportInepException(
+                "O ano selecionado foi {$year}, mas a planilha \"{$fileName}\" é referente ao Censo Escolar {$fileYear}."
+            );
         }
     }
 

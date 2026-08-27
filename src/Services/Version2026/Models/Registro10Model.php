@@ -1,0 +1,247 @@
+<?php
+
+namespace iEducar\Packages\Educacenso\Services\Version2026\Models;
+
+use App\Models\Educacenso\Registro10;
+use Illuminate\Validation\ValidationException;
+
+class Registro10Model extends Registro10
+{
+    public function hydrateModel($arrayColumns): void
+    {
+        array_unshift($arrayColumns, null);
+        unset($arrayColumns[0]);
+
+        if (is_null($arrayColumns[2]) || $arrayColumns[2] === '') {
+            throw ValidationException::withMessages([
+                'error' => 'Você está tentando importar um arquivo com escola(s) inválida(s). o i-Educar aceita apenas arquivos oriundos do sistema do MEC.',
+            ]);
+        }
+
+        $this->registro = $arrayColumns[1];
+        $this->codigoInep = $arrayColumns[2];
+        $this->localFuncionamentoPredioEscolar = $arrayColumns[3];
+        $this->localFuncionamentoSalasOutraEscola = $arrayColumns[4];
+        $this->localFuncionamentoGalpao = $arrayColumns[5];
+        $this->localFuncionamentoUnidadeAtendimentoSocioeducativa = $arrayColumns[6];
+        $this->localFuncionamentoUnidadePrisional = $arrayColumns[7];
+        $this->localFuncionamentoOutros = $arrayColumns[8];
+        $this->condicao = $arrayColumns[9];
+        $this->predioCompartilhadoOutraEscola = (int) $arrayColumns[10];
+        $this->codigoInepEscolaCompartilhada = $arrayColumns[11];
+        $this->codigoInepEscolaCompartilhada2 = $arrayColumns[12];
+        $this->codigoInepEscolaCompartilhada3 = $arrayColumns[13];
+        $this->codigoInepEscolaCompartilhada4 = $arrayColumns[14];
+        $this->codigoInepEscolaCompartilhada5 = $arrayColumns[15];
+        $this->codigoInepEscolaCompartilhada6 = $arrayColumns[16];
+        $this->aguaPotavelConsumo = $arrayColumns[17];
+        $this->aguaRedePublica = $arrayColumns[18];
+        $this->aguaPocoArtesiano = $arrayColumns[19];
+        $this->aguaCacimbaCisternaPoco = $arrayColumns[20];
+        $this->aguaFonteRio = $arrayColumns[21];
+        $this->aguaCarroPipa = $arrayColumns[22];
+        $this->aguaInexistente = $arrayColumns[23];
+        $this->energiaRedePublica = $arrayColumns[24];
+        $this->energiaGerador = $arrayColumns[25];
+        $this->energiaOutros = $arrayColumns[26];
+        $this->energiaInexistente = $arrayColumns[27];
+        $this->esgotoRedePublica = $arrayColumns[28];
+        $this->esgotoFossaComum = $arrayColumns[29];
+        $this->esgotoFossaRudimentar = $arrayColumns[30];
+        $this->esgotoInexistente = $arrayColumns[31];
+        $this->lixoColetaPeriodica = $arrayColumns[32];
+        $this->lixoQueima = $arrayColumns[33];
+        $this->lixoEnterra = $arrayColumns[34];
+        $this->lixoDestinacaoPoderPublico = $arrayColumns[35];
+        $this->lixoJogaOutraArea = $arrayColumns[36];
+        $this->tratamentoLixoSeparacao = $arrayColumns[37];
+        $this->tratamentoLixoReaproveitamento = $arrayColumns[38];
+        $this->tratamentoLixoReciclagem = $arrayColumns[39];
+        $this->tratamentoLixoNaoFaz = $arrayColumns[40];
+        $this->dependenciaAumoxarifado = $arrayColumns[41];
+        $this->dependenciaAreaVerde = $arrayColumns[42];
+        $this->dependenciaAuditorio = $arrayColumns[43];
+        $this->dependenciaBanheiro = $arrayColumns[44];
+        $this->dependenciaBanheiroDeficiente = $arrayColumns[45];
+        $this->dependenciaBanheiroInfantil = $arrayColumns[46];
+        $this->dependenciaBanheiroFuncionarios = $arrayColumns[47];
+        $this->dependenciaBanheiroChuveiro = $arrayColumns[48];
+        $this->dependenciaBiblioteca = $arrayColumns[49];
+        $this->dependenciaCozinha = $arrayColumns[50];
+        $this->dependenciaDispensa = $arrayColumns[51];
+        $this->dependenciaDormitorioAluno = $arrayColumns[52];
+        $this->dependenciaDormitorioProfessor = $arrayColumns[53];
+        $this->dependenciaLaboratorioCiencias = $arrayColumns[54];
+        $this->dependenciaLaboratorioInformatica = $arrayColumns[55];
+        $this->dependenciaLaboratorioRobotica = $arrayColumns[56];
+        $this->dependenciaLaboratorioEducacaoProfissional = $arrayColumns[57];
+        $this->dependenciaParqueInfantil = $arrayColumns[58];
+        $this->dependenciaPatioCoberto = $arrayColumns[59];
+        $this->dependenciaPatioDescoberto = $arrayColumns[60];
+        $this->dependenciaPiscina = $arrayColumns[61];
+        $this->dependenciaQuadraCoberta = $arrayColumns[62];
+        $this->dependenciaQuadraDescoberta = $arrayColumns[63];
+        $this->dependenciaRefeitorio = $arrayColumns[64];
+        $this->dependenciaSalaRepouso = $arrayColumns[65];
+        $this->dependenciaSalaArtes = $arrayColumns[66];
+        $this->dependenciaSalaMusica = $arrayColumns[67];
+        $this->dependenciaSalaDanca = $arrayColumns[68];
+        $this->dependenciaSalaMultiuso = $arrayColumns[69];
+        $this->dependenciaTerreirao = $arrayColumns[70];
+        $this->dependenciaViveiro = $arrayColumns[71];
+        $this->dependenciaSalaDiretoria = $arrayColumns[72];
+        $this->dependenciaSalaLeitura = $arrayColumns[73];
+        $this->dependenciaSalaProfessores = $arrayColumns[74];
+        $this->dependenciaSalaAee = $arrayColumns[75];
+        $this->dependenciaSalaSecretaria = $arrayColumns[76];
+        $this->dependenciaSalaEducacaoProfissional = $arrayColumns[77];
+        $this->dependenciaSalaEstudioGravacaoEdicao = $arrayColumns[78];
+        $this->dependenciaAreaHorta = $arrayColumns[79];
+        $this->dependenciaNenhumaRelacionada = $arrayColumns[80];
+        $this->recursoCorrimao = $arrayColumns[81];
+        $this->recursoElevador = $arrayColumns[82];
+        $this->recursoPisosTateis = $arrayColumns[83];
+        $this->recursoPortaVaoLivre = $arrayColumns[84];
+        $this->recursoRampas = $arrayColumns[85];
+        $this->recursoSinalizacaoLuminosa = $arrayColumns[86];
+        $this->recursoSinalizacaoSonora = $arrayColumns[87];
+        $this->recursoSinalizacaoTatil = $arrayColumns[88];
+        $this->recursoSinalizacaoVisual = $arrayColumns[89];
+        $this->recursoNenhum = $arrayColumns[90];
+        $this->numeroSalasUtilizadasDentroPredio = $arrayColumns[91];
+        $this->numeroSalasUtilizadasForaPredio = $arrayColumns[92];
+        $this->numeroSalasClimatizadas = $arrayColumns[93];
+        $this->numeroSalasAcessibilidade = $arrayColumns[94];
+        $this->numeroSalasCantinhoLeitura = $arrayColumns[95];
+        $this->antenasParabolicas = $arrayColumns[96];
+        $this->computadores = $arrayColumns[97];
+        $this->copiadoras = $arrayColumns[98];
+        $this->impressoras = $arrayColumns[99];
+        $this->impressorasMultifuncionais = $arrayColumns[100];
+        $this->equipamentosScanner = $arrayColumns[101];
+        $this->equipamentosNenhum = $arrayColumns[102];
+        $this->dvds = $arrayColumns[103];
+        $this->aparelhosDeSom = $arrayColumns[104];
+        $this->televisoes = $arrayColumns[105];
+        $this->lousasDigitais = $arrayColumns[106];
+        $this->projetoresDigitais = $arrayColumns[107];
+        $this->quantidadeComputadoresAlunosMesa = $arrayColumns[108];
+        $this->quantidadeComputadoresAlunosPortateis = $arrayColumns[109];
+        $this->quantidadeComputadoresAlunosTablets = $arrayColumns[110];
+        $this->acessoInternetAdministrativo = $arrayColumns[111];
+        $this->acessoInternetProcessoEnsino = $arrayColumns[112];
+        $this->acessoInternetAlunos = $arrayColumns[113];
+        $this->acessoInternetComunidade = $arrayColumns[114];
+        $this->acessoInternetNaoPossui = $arrayColumns[115];
+        $this->mapEquipamentosInternetAlunos($arrayColumns[116]);
+        $this->acessoInternet = $arrayColumns[117] ?: null;
+        $this->mapRedeLocal($arrayColumns[118]);
+        $this->qtdAgronomosHorticultores = $arrayColumns[119];
+        $this->qtdAssistenteSocial = $arrayColumns[120];
+        $this->qtdAuxiliarAdministrativo = $arrayColumns[121];
+        $this->qtdAuxiliarServicosGerais = $arrayColumns[122];
+        $this->qtdBibliotecarios = $arrayColumns[123];
+        $this->qtdBombeiro = $arrayColumns[124];
+        $this->qtdCoordenadorTurno = $arrayColumns[125];
+        $this->qtdFonoaudiologo = $arrayColumns[126];
+        $this->qtdNutricionistas = $arrayColumns[127];
+        $this->qtdPsicologo = $arrayColumns[128];
+        $this->qtdProfissionaisPreparacao = $arrayColumns[129];
+        $this->qtdApoioPedagogico = $arrayColumns[130];
+        $this->qtdSecretarioEscolar = $arrayColumns[131];
+        $this->qtdSegurancas = $arrayColumns[132];
+        $this->qtdTecnicos = $arrayColumns[133];
+        $this->qtdViceDiretor = $arrayColumns[134];
+        $this->qtdOrientadorComunitario = $arrayColumns[135];
+        $this->qtdTradutorInterpreteLibrasOutroAmbiente = $arrayColumns[136];
+        $this->qtdRevisorBraile = $arrayColumns[137];
+        $this->semFuncionariosParaFuncoes = $arrayColumns[138];
+        $this->alimentacaoEscolarAlunos = $arrayColumns[139];
+        $this->instrumentosPedagogicosAcervo = $arrayColumns[140];
+        $this->instrumentosPedagogicosBrinquedos = $arrayColumns[141];
+        $this->instrumentosPedagogicosMateriaisCientificos = $arrayColumns[142];
+        $this->instrumentosPedagogicosEquipamentosSom = $arrayColumns[143];
+        $this->instrumentosPedagogicosEquipamentosAudiovisuais = $arrayColumns[144];
+        $this->instrumentosPedagogicosAreaHorta = $arrayColumns[145];
+        $this->instrumentosPedagogicosInstrumentos = $arrayColumns[146];
+        $this->instrumentosPedagogicosJogos = $arrayColumns[147];
+        $this->instrumentosPedagogicosKitsRobotica = $arrayColumns[148];
+        $this->instrumentosPedagogicosAtividadesCulturais = $arrayColumns[149];
+        $this->instrumentosPedagogicosEducacaoEmocional = $arrayColumns[150];
+        $this->instrumentosPedagogicosEducacaoProfissional = $arrayColumns[151];
+        $this->instrumentosPedagogicosPraticaDesportiva = $arrayColumns[152];
+        $this->instrumentosPedagogicosEducacaoBilingueSurdos = $arrayColumns[153];
+        $this->instrumentosPedagogicosEducacaoIndigena = $arrayColumns[154];
+        $this->instrumentosPedagogicosEducacaoEtnicoRacial = $arrayColumns[155];
+        $this->instrumentosPedagogicosEducacaoCampo = $arrayColumns[156];
+        $this->instrumentosPedagogicosEducacaoQuilombola = $arrayColumns[157];
+        $this->instrumentosPedagogicosEducacaoEspecial = $arrayColumns[158];
+        $this->instrumentosPedagogicosNenhum = $arrayColumns[159];
+        $this->mapLinguaMinistradaEnsino($arrayColumns[160]);
+        $this->linguaIndigena1 = $arrayColumns[161];
+        $this->linguaIndigena2 = $arrayColumns[162];
+        $this->linguaIndigena3 = $arrayColumns[163];
+        $this->exameSelecaoIngresso = (int) $arrayColumns[164];
+        $this->reservaVagasCotasAutodeclaracao = $arrayColumns[165];
+        $this->reservaVagasCotasRenda = $arrayColumns[166];
+        $this->reservaVagasCotasEscolaPublica = $arrayColumns[167];
+        $this->reservaVagasCotasPCD = $arrayColumns[168];
+        $this->reservaVagasCotasOutros = $arrayColumns[169];
+        $this->reservaVagasCotasNaoFaz = $arrayColumns[170];
+        $this->url = $arrayColumns[171];
+        $this->compartilhaEspacosAtividadesIntegracao = (int) $arrayColumns[172];
+        $this->usaEspacosEquipamentosAtividadesRegulares = (int) $arrayColumns[173];
+        $this->orgaoColegiadoAssociacaoPais = $arrayColumns[174];
+        $this->orgaoColegiadoAssociacaoPaisMestres = $arrayColumns[175];
+        $this->orgaoColegiadoConselho = $arrayColumns[176];
+        $this->orgaoColegiadoGremio = $arrayColumns[177];
+        $this->orgaoColegiadoOutros = $arrayColumns[178];
+        $this->orgaoColegiadoNaoExiste = $arrayColumns[179];
+        $this->projetoPoliticoPedagogico = $arrayColumns[180];
+        $this->acaoAreaAmbiental = (int) $arrayColumns[181];
+        $this->acaoConteudoComponente = $arrayColumns[182];
+        $this->acaoConteudoCurricular = $arrayColumns[183];
+        $this->acaoEixoCurriculo = $arrayColumns[184];
+        $this->acaoEventos = $arrayColumns[185];
+        $this->acaoProjetoInterdisciplinares = $arrayColumns[186];
+        $this->acaoAmbientalNenhuma = $arrayColumns[187];
+    }
+
+    private function mapEquipamentosInternetAlunos($valor): void
+    {
+        $this->computadoresMesaAcessoInternet = null;
+        $this->dispositovosPessoaisAcessoInternet = null;
+
+        if ($valor === '' || $valor === null) {
+            return;
+        }
+
+        $valor = (int) $valor;
+        $this->computadoresMesaAcessoInternet = in_array($valor, [1, 3], true) ? 1 : 0;
+        $this->dispositovosPessoaisAcessoInternet = in_array($valor, [2, 3], true) ? 1 : 0;
+    }
+
+    private function mapRedeLocal($valor): void
+    {
+        $this->redeLocalNaoExiste = null;
+        $this->redeLocalCabo = null;
+        $this->redeLocalWireless = null;
+
+        if ($valor === '' || $valor === null) {
+            return;
+        }
+
+        $valor = (int) $valor;
+        $this->redeLocalNaoExiste = $valor === 0 ? 1 : 0;
+        $this->redeLocalCabo = in_array($valor, [1, 3], true) ? 1 : 0;
+        $this->redeLocalWireless = in_array($valor, [2, 3], true) ? 1 : 0;
+    }
+
+    private function mapLinguaMinistradaEnsino($valor): void
+    {
+        $valor = (int) $valor;
+        $this->educacaoIndigena = in_array($valor, [1, 2, 3], true) ? 1 : 0;
+        $this->linguaIndigena = in_array($valor, [1, 3], true) ? 1 : 0;
+        $this->linguaPortuguesa = in_array($valor, [2, 3], true) ? 1 : 0;
+    }
+}

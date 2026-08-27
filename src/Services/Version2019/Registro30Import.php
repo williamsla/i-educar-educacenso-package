@@ -263,13 +263,17 @@ class Registro30Import implements RegistroImportInterface
         }
 
         if (EmployeeInep::where('cod_docente_inep', $this->model->inepPessoa)
+            ->where('cod_servidor', '!=', $employee->getKey())
             ->exists()) {
             return;
         }
 
+        EmployeeInep::where('cod_servidor', $employee->getKey())->delete();
+
         EmployeeInep::create([
             'cod_servidor' => $employee->getKey(),
             'cod_docente_inep' => $this->model->inepPessoa,
+            'nome_inep' => $this->model->nomePessoa,
         ]);
     }
 
@@ -623,7 +627,7 @@ class Registro30Import implements RegistroImportInterface
         }
     }
 
-    private function storeEmployeeCourses(Employee $employee): void
+    protected function storeEmployeeCourses(Employee $employee): void
     {
         $arrayCourses = [];
 
@@ -680,7 +684,7 @@ class Registro30Import implements RegistroImportInterface
         }
 
         if ($this->model->formacaoContinuadaEducacaoRelacoesEticoRaciais) {
-            $arrayCourses[] = FormacaoContinuada::CRECHE;
+            $arrayCourses[] = FormacaoContinuada::RELACOES_ETNICO_RACIAIS;
         }
 
         if ($this->model->formacaoContinuadaEducacaoGestaoEscolar) {

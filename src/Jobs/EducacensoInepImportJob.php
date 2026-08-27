@@ -4,6 +4,7 @@ namespace iEducar\Packages\Educacenso\Jobs;
 
 use iEducar\Packages\Educacenso\Models\EducacensoInepImport;
 use iEducar\Packages\Educacenso\Services\EducacensoImportInepService;
+use iEducar\Packages\Educacenso\Services\EducacensoImportInepSpreadsheetService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -28,6 +29,13 @@ class EducacensoInepImportJob implements ShouldQueue
     public function handle(): void
     {
         $this->setConnection();
+
+        if (isset($this->data['layout'])) {
+            (new EducacensoImportInepSpreadsheetService($this->educacensoInepImport, $this->data))->execute();
+
+            return;
+        }
+
         (new EducacensoImportInepService($this->educacensoInepImport, $this->data))->execute();
     }
 
@@ -39,6 +47,13 @@ class EducacensoInepImportJob implements ShouldQueue
     public function failed(Throwable $exception): void
     {
         $this->setConnection();
+
+        if (isset($this->data['layout'])) {
+            (new EducacensoImportInepSpreadsheetService($this->educacensoInepImport, $this->data))->failed();
+
+            return;
+        }
+
         (new EducacensoImportInepService($this->educacensoInepImport, $this->data))->failed();
     }
 
