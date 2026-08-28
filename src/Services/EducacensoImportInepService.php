@@ -61,8 +61,21 @@ class EducacensoImportInepService
     {
         $handle = fopen($file, 'r');
         while (($line = fgets($handle)) !== false) {
-            yield rtrim($line, "\r\n");
+            yield self::toUtf8(rtrim($line, "\r\n"));
         }
+
+        fclose($handle);
+    }
+
+    public static function toUtf8(string $value): string
+    {
+        if ($value === '' || mb_check_encoding($value, 'UTF-8')) {
+            return $value;
+        }
+
+        $converted = mb_convert_encoding($value, 'UTF-8', 'Windows-1252');
+
+        return $converted !== false ? $converted : $value;
     }
 
     public function execute(): void
@@ -136,15 +149,15 @@ class EducacensoImportInepService
 
     private function importStudentByIdentity(array $fields): void
     {
-        $inep = trim((string) ($fields[3] ?? ''));
+        $inep = clearInt(trim((string) ($fields[3] ?? ''))) ?? '';
 
         if ($inep === '' || ! isset($this->studentIneps[$inep])) {
             return;
         }
 
-        $cpf = trim((string) ($fields[4] ?? ''));
+        $cpf = $this->matcher->decode(trim((string) ($fields[4] ?? '')));
         $name = $this->matcher->decode((string) ($fields[5] ?? ''));
-        $birthDate = trim((string) ($fields[6] ?? ''));
+        $birthDate = $this->matcher->decode(trim((string) ($fields[6] ?? '')));
 
         $student = $this->matcher->findStudent($cpf, $name, $birthDate);
 
@@ -169,7 +182,7 @@ class EducacensoImportInepService
                 continue;
             }
 
-            $inep = trim((string) ($fields[3] ?? ''));
+            $inep = clearInt(trim((string) ($fields[3] ?? ''))) ?? '';
 
             if ($inep !== '') {
                 $ineps[$inep] = true;

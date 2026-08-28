@@ -91,9 +91,6 @@ class ImportInepController extends Controller
                         'user_id' => $request->user()->getKey(),
                         'school_name' => $schoolName,
                     ]);
-                    array_walk_recursive($schoolData, static function (&$item): void {
-                        $item = htmlentities((string) $item, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                    });
                     $schoolCount++;
                     $jobs[] = [
                         $educacensoInepImport,

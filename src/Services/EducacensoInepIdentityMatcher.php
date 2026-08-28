@@ -98,7 +98,7 @@ class EducacensoInepIdentityMatcher
         }
 
         $students = LegacyStudent::query()
-            ->whereHas('individual', fn ($query) => $query->whereIn('cpf', $variants))
+            ->whereHas('individual', fn ($query) => $query->where('cpf', (int) $variants[0]))
             ->get(['cod_aluno']);
 
         if ($students->count() === 1) {
@@ -152,7 +152,7 @@ class EducacensoInepIdentityMatcher
         }
 
         $personIds = LegacyIndividual::query()
-            ->whereIn('cpf', $variants)
+            ->where('cpf', (int) $variants[0])
             ->pluck('idpes');
 
         $employees = Employee::query()
