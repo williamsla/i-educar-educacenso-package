@@ -10,10 +10,8 @@ use App\Models\LegacySchoolClass;
 use App\Models\LegacyStudent;
 use App\Models\NotificationType;
 use App\Models\SchoolClassInep;
-use App\Models\StudentInep;
 use App\Services\NotificationService;
 use Generator;
-use iEducar\Packages\Educacenso\Enums\EducacensoImportStatus;
 use iEducar\Packages\Educacenso\Models\EducacensoInepImport;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -26,7 +24,7 @@ class EducacensoImportInepService
 
     private string $schoolInep = '';
 
-    private string $dataBaseEducacenso;
+    private ?string $dataBaseEducacenso = null;
 
     private EducacensoInepIdentityMatcher $matcher;
 
@@ -36,6 +34,9 @@ class EducacensoImportInepService
     public function __construct(private EducacensoInepImport $educacensoInepImport, private array $data)
     {
         $this->dataBaseEducacenso = config("educacenso.data_base.{$this->educacensoInepImport->year}");
+        if (! is_string($this->dataBaseEducacenso) || $this->dataBaseEducacenso === '') {
+            $this->dataBaseEducacenso = null;
+        }
     }
 
     public static function getDataBySchool(UploadedFile $file): Generator
@@ -75,36 +76,46 @@ class EducacensoImportInepService
             $this->schoolName,
         );
         $this->studentIneps = $this->collectStudentIneps();
+        $failedLines = 0;
 
-        foreach ($this->data as $line) {
-            $lineArray = explode('|', $line);
-            $register = $lineArray[0] ?? '';
-            $id = trim((string) ($lineArray[2] ?? ''));
-            $inep = trim((string) ($lineArray[3] ?? ''));
+        foreach ($this->data as $index => $line) {
+            try {
+                $lineArray = explode('|', $line);
+                $register = $lineArray[0] ?? '';
+                $id = trim((string) ($lineArray[2] ?? ''));
+                $inep = trim((string) ($lineArray[3] ?? ''));
 
-            if ($register === '20') {
-                $this->importSchoolClass($id, $inep, $this->matcher->decode((string) ($lineArray[4] ?? '')));
+                if ($register === '20') {
+                    $this->importSchoolClass($id, $inep, $this->matcher->decode((string) ($lineArray[4] ?? '')));
 
-                continue;
-            }
+                    continue;
+                }
 
-            if ($register === '30') {
-                $this->importStudentByIdentity($lineArray);
+                if ($register === '30') {
+                    $this->importStudentByIdentity($lineArray);
 
-                continue;
-            }
+                    continue;
+                }
 
-            if (in_array($register, ['40', '50'], true) && $id !== '' && $inep !== '') {
-                $this->updateEmployee($id, $inep);
+                if (in_array($register, ['40', '50'], true) && $id !== '' && $inep !== '') {
+                    $this->updateEmployee($id, $inep);
 
-                continue;
-            }
+                    continue;
+                }
 
-            if ($register === '60' && $id !== '' && $inep !== '') {
-                $this->updateStudent($id, $inep, $lineArray[5] ?? null, $lineArray[6] ?? null);
+                if ($register === '60' && $id !== '' && $inep !== '') {
+                    $this->updateStudent($id, $inep, $lineArray[5] ?? null, $lineArray[6] ?? null);
+                }
+            } catch (Throwable $exception) {
+                $failedLines++;
+                Log::error('Falha ao importar linha de INEP do TXT.', [
+                    'import_id' => $this->educacensoInepImport->getKey(),
+                    'line' => $index + 1,
+                    'message' => $exception->getMessage(),
+                ]);
             }
         }
-        $this->updateImporter();
+        $this->updateImporter($failedLines);
         $this->notifyUser();
     }
 
@@ -222,49 +233,47 @@ class EducacensoImportInepService
         }
 
         foreach ($students as $student) {
-            StudentInep::query()
-                ->updateOrCreate([
-                    'cod_aluno' => $student->getKey(),
-                ], [
-                    'cod_aluno_inep' => $inep,
-                ]);
-
+            $this->matcher->saveStudentInep($student, $inep);
 
             $schoolClassInep = SchoolClassInep::query()
                 ->where('cod_turma_inep', $inepSchoolClass)
                 ->first();
 
-            if ($schoolClassInep) {
-                $enrollment = LegacyEnrollment::query()
-                    ->where('ref_cod_turma', $schoolClassInep->cod_turma)
-                    ->where('data_enturmacao', '<=', $this->dataBaseEducacenso)
-                    ->whereHas('registration', function ($q) use ($student): void {
-                        $q->where('ref_cod_aluno', $student->getKey());
-                    })
-                    ->orderByDesc('data_enturmacao')
-                    ->get(['id'])
-                    ->first();
+            if (! $schoolClassInep) {
+                continue;
+            }
 
-                if ($enrollment) {
-                    EnrollmentInep::query()
-                        ->updateOrCreate([
-                            'matricula_turma_id' => $enrollment->getKey(),
-                            'matricula_inep' => $matricula,
-                        ], [
-                            'matricula_turma_id' => $enrollment->getKey(),
-                            'matricula_inep' => $matricula,
-                        ]);
-                }
+            $enrollmentQuery = LegacyEnrollment::query()
+                ->where('ref_cod_turma', $schoolClassInep->cod_turma)
+                ->whereHas('registration', function ($q) use ($student): void {
+                    $q->where('ref_cod_aluno', $student->getKey());
+                })
+                ->orderByDesc('data_enturmacao');
+
+            if ($this->dataBaseEducacenso !== null) {
+                $enrollmentQuery->where('data_enturmacao', '<=', $this->dataBaseEducacenso);
+            }
+
+            $enrollment = $enrollmentQuery->get(['id'])->first();
+
+            if ($enrollment) {
+                EnrollmentInep::query()
+                    ->updateOrCreate([
+                        'matricula_turma_id' => $enrollment->getKey(),
+                        'matricula_inep' => $matricula,
+                    ], [
+                        'matricula_turma_id' => $enrollment->getKey(),
+                        'matricula_inep' => $matricula,
+                    ]);
             }
         }
     }
 
-    private function updateImporter(): void
+    private function updateImporter(int $failedLines = 0): void
     {
-        $this->educacensoInepImport->update([
-            'status_id' => EducacensoImportStatus::SUCCESS,
-            'error_message' => null,
-        ]);
+        $this->educacensoInepImport->markAsSuccess(
+            EducacensoImportErrorMessage::fromLineFailures($failedLines)
+        );
     }
 
     private function notifyUser(): void
@@ -291,9 +300,6 @@ class EducacensoImportInepService
 
     public function failed(?string $errorMessage = null): void
     {
-        $this->educacensoInepImport->update([
-            'status_id' => EducacensoImportStatus::ERROR,
-            'error_message' => $errorMessage,
-        ]);
+        $this->educacensoInepImport->markAsError($errorMessage);
     }
 }

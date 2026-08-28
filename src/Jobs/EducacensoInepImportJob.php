@@ -60,15 +60,22 @@ class EducacensoInepImportJob implements ShouldQueue
 
         $this->setConnection();
 
-        $errorMessage = EducacensoImportErrorMessage::fromThrowable($exception);
+        try {
+            $errorMessage = EducacensoImportErrorMessage::fromThrowable($exception);
 
-        if (isset($this->data['layout'])) {
-            (new EducacensoImportInepSpreadsheetService($this->educacensoInepImport, $this->data))->failed($errorMessage);
+            if (isset($this->data['layout'])) {
+                (new EducacensoImportInepSpreadsheetService($this->educacensoInepImport, $this->data))->failed($errorMessage);
 
-            return;
+                return;
+            }
+
+            (new EducacensoImportInepService($this->educacensoInepImport, $this->data))->failed($errorMessage);
+        } catch (Throwable $nested) {
+            Log::error('Não foi possível marcar a importação de INEP como erro.', [
+                'import_id' => $this->educacensoInepImport->getKey(),
+                'message' => $nested->getMessage(),
+            ]);
         }
-
-        (new EducacensoImportInepService($this->educacensoInepImport, $this->data))->failed($errorMessage);
     }
 
     public function tags()

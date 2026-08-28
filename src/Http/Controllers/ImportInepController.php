@@ -15,6 +15,7 @@ use iEducar\Packages\Educacenso\Services\EducacensoImportErrorMessage;
 use iEducar\Packages\Educacenso\Services\EducacensoImportInepService;
 use iEducar\Packages\Educacenso\Services\EducacensoImportInepSpreadsheetParser;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Throwable;
 
@@ -40,6 +41,7 @@ class ImportInepController extends Controller
         $files = $request->file('arquivos');
         $jobs = [];
         $schoolCount = 0;
+        $skippedWithoutStartDate = 0;
         $year = (int) $request->get('ano');
         $tipo = (string) $request->get('tipo');
         try {
@@ -70,6 +72,18 @@ class ImportInepController extends Controller
                     $schoolInep = $schoolLine[1] ?? '';
                     $schoolName = mb_strtoupper($schoolLine[5] ?? '');
                     $fileDate = trim((string) ($schoolLine[3] ?? ''));
+
+                    if ($fileDate === '') {
+                        $skippedWithoutStartDate++;
+                        Log::info('Escola ignorada na importação de INEP por não ter data de início do ano letivo.', [
+                            'file' => $fileName,
+                            'school_inep' => $schoolInep,
+                            'school_name' => $schoolName,
+                        ]);
+
+                        continue;
+                    }
+
                     $this->validateFileYear($fileDate, $year, $fileName, $schoolInep, $schoolName);
                     $this->validateSchoolInep((int) $schoolInep, $schoolName);
                     $educacensoInepImport = EducacensoInepImport::create([
@@ -77,7 +91,9 @@ class ImportInepController extends Controller
                         'user_id' => $request->user()->getKey(),
                         'school_name' => $schoolName,
                     ]);
-                    array_walk_recursive($schoolData, static fn (&$item) => $item = mb_convert_encoding($item, 'HTML-ENTITIES', 'UTF-8'));
+                    array_walk_recursive($schoolData, static function (&$item): void {
+                        $item = htmlentities((string) $item, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    });
                     $schoolCount++;
                     $jobs[] = [
                         $educacensoInepImport,
@@ -96,8 +112,8 @@ class ImportInepController extends Controller
                 ->with('error', EducacensoImportErrorMessage::fromThrowable($exception));
         }
 
-
-        return redirect()->route('educacenso.import.inep.index')->with('success', "Iniciado o processamento dos INEPs de {$schoolCount} escolas.");
+        return redirect()->route('educacenso.import.inep.index')
+            ->with('success', $this->storeSuccessMessage($schoolCount, $skippedWithoutStartDate));
     }
 
     private function validateSchoolInep(int $inep, string $schoolName): void
@@ -111,12 +127,6 @@ class ImportInepController extends Controller
     private function validateFileYear(string $fileDate, int $year, string $fileName, string $schoolInep, string $schoolName): void
     {
         $origin = $this->describeFileOrigin($fileName, $schoolInep, $schoolName);
-
-        if ($fileDate === '') {
-            throw new ImportInepException(
-                "Não foi possível ler a data de início do ano letivo {$origin}. O 4º campo do registro 00 deve estar no formato dd/mm/aaaa."
-            );
-        }
 
         $validator = Validator::make(['year' => $fileDate], [
             'year' => [
@@ -150,6 +160,25 @@ class ImportInepController extends Controller
         }
 
         return $origin;
+    }
+
+    private function storeSuccessMessage(int $schoolCount, int $skippedWithoutStartDate): string
+    {
+        $skippedLabel = $skippedWithoutStartDate === 1
+            ? '1 escola foi ignorada por não ter data de início do ano letivo no registro 00.'
+            : "{$skippedWithoutStartDate} escolas foram ignoradas por não terem data de início do ano letivo no registro 00.";
+
+        if ($schoolCount === 0 && $skippedWithoutStartDate > 0) {
+            return "Nenhuma escola foi importada. {$skippedLabel}";
+        }
+
+        $message = "Iniciado o processamento dos INEPs de {$schoolCount} escolas.";
+
+        if ($skippedWithoutStartDate > 0) {
+            $message .= " {$skippedLabel}";
+        }
+
+        return $message;
     }
 
     private function validateSpreadsheetYear(?int $fileYear, int $year, string $fileName): void

@@ -45,10 +45,12 @@ class EducacensoInepIdentityMatcher
 
     public function saveStudentInep(LegacyStudent $student, string $inep): void
     {
-        StudentInep::query()->updateOrCreate(
-            ['cod_aluno' => $student->getKey()],
-            ['cod_aluno_inep' => $inep]
-        );
+        StudentInep::query()->where('cod_aluno', $student->getKey())->delete();
+
+        StudentInep::query()->create([
+            'cod_aluno' => $student->getKey(),
+            'cod_aluno_inep' => $inep,
+        ]);
     }
 
     public function saveEmployeeInep(Employee $employee, string $inep): void

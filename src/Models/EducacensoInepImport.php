@@ -7,6 +7,7 @@ use iEducar\Packages\Educacenso\Enums\EducacensoImportStatus;
 use iEducar\Packages\Educacenso\Services\EducacensoImportErrorMessage;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 
 class EducacensoInepImport extends Model
 {
@@ -46,6 +47,34 @@ class EducacensoInepImport extends Model
     public function statusIsWaiting(): bool
     {
         return $this->status_id === EducacensoImportStatus::WAITING->value;
+    }
+
+    public function markAsSuccess(?string $warningMessage = null): void
+    {
+        $this->updateStatus(EducacensoImportStatus::SUCCESS, $warningMessage);
+    }
+
+    public function markAsError(?string $errorMessage = null): void
+    {
+        $this->updateStatus(EducacensoImportStatus::ERROR, $errorMessage);
+    }
+
+    private function updateStatus(EducacensoImportStatus $status, ?string $errorMessage): void
+    {
+        try {
+            $this->update([
+                'status_id' => $status->value,
+                'error_message' => $errorMessage,
+            ]);
+        } catch (QueryException $exception) {
+            if (! str_contains($exception->getMessage(), 'error_message')) {
+                throw $exception;
+            }
+
+            $this->update([
+                'status_id' => $status->value,
+            ]);
+        }
     }
 
     protected function detail(): Attribute

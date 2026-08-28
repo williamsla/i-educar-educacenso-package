@@ -5,7 +5,6 @@ namespace iEducar\Packages\Educacenso\Services;
 use App\Models\NotificationType;
 use App\Services\NotificationService;
 use iEducar\Packages\Educacenso\Enums\EducacensoInepImportLayout;
-use iEducar\Packages\Educacenso\Enums\EducacensoImportStatus;
 use iEducar\Packages\Educacenso\Models\EducacensoInepImport;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -37,6 +36,7 @@ class EducacensoImportInepSpreadsheetService
         $isStudentSheet = $this->data['layout'] === EducacensoInepImportLayout::SPREADSHEET_STUDENT;
         $importedPeople = [];
         $importedClasses = [];
+        $failedRows = 0;
 
         foreach ($this->data['rows'] as $index => $row) {
             try {
@@ -67,6 +67,7 @@ class EducacensoImportInepSpreadsheetService
                     $importedClasses[$classKey] = true;
                 }
             } catch (Throwable $exception) {
+                $failedRows++;
                 Log::error('Falha ao importar INEP da planilha.', [
                     'import_id' => $this->educacensoInepImport->getKey(),
                     'row' => $index + 1,
@@ -76,10 +77,9 @@ class EducacensoImportInepSpreadsheetService
             }
         }
 
-        $this->educacensoInepImport->update([
-            'status_id' => EducacensoImportStatus::SUCCESS,
-            'error_message' => null,
-        ]);
+        $this->educacensoInepImport->markAsSuccess(
+            EducacensoImportErrorMessage::fromLineFailures($failedRows)
+        );
 
         $this->notifyUser();
     }
@@ -103,9 +103,6 @@ class EducacensoImportInepSpreadsheetService
 
     public function failed(?string $errorMessage = null): void
     {
-        $this->educacensoInepImport->update([
-            'status_id' => EducacensoImportStatus::ERROR,
-            'error_message' => $errorMessage,
-        ]);
+        $this->educacensoInepImport->markAsError($errorMessage);
     }
 }

@@ -5,6 +5,10 @@
 @endpush
 
 @section('content')
+    @if(session('success'))
+        <p style="text-align: center; margin-bottom: 15px;">{{ session('success') }}</p>
+    @endif
+
     @if(session('error'))
         <p style="text-align: center; margin-bottom: 15px; color: #a94442;">{{ session('error') }}</p>
     @endif
@@ -40,8 +44,8 @@
             </tr>
             @if($import->detail)
                 <tr>
-                    <td colspan="5" style="font-size: 12px; background: #f8d7da; padding: 10px; color: #721c24;">
-                        <strong>Motivo:</strong> {{ $import->detail }}
+                    <td colspan="5" style="font-size: 12px; padding: 10px; {{ $import->statusIsError() ? 'background: #f8d7da; color: #721c24;' : 'background: #fff8d6; color: #6c5a00;' }}">
+                        <strong>{{ $import->statusIsError() ? 'Motivo:' : 'Observação:' }}</strong> {{ $import->detail }}
                     </td>
                 </tr>
             @endif

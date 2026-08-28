@@ -36,4 +36,17 @@ class EducacensoImportErrorMessageTest extends TestCase
             EducacensoImportErrorMessage::fromThrowable(new RuntimeException('Call to a member function foo() on null'))
         );
     }
+
+    public function testSummarizesLineFailuresForSuccessfulImport(): void
+    {
+        $this->assertNull(EducacensoImportErrorMessage::fromLineFailures(0));
+        $this->assertSame(
+            'A importação foi concluída, mas 1 registro não pôde ter o INEP atualizado.',
+            EducacensoImportErrorMessage::fromLineFailures(1)
+        );
+        $this->assertSame(
+            'A importação foi concluída, mas 3 registros não puderam ter o INEP atualizado.',
+            EducacensoImportErrorMessage::fromLineFailures(3)
+        );
+    }
 }

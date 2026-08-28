@@ -34,6 +34,19 @@ class EducacensoImportErrorMessage
         return self::GENERIC;
     }
 
+    public static function fromLineFailures(int $count): ?string
+    {
+        if ($count <= 0) {
+            return null;
+        }
+
+        if ($count === 1) {
+            return 'A importação foi concluída, mas 1 registro não pôde ter o INEP atualizado.';
+        }
+
+        return "A importação foi concluída, mas {$count} registros não puderam ter o INEP atualizado.";
+    }
+
     private static function truncate(string $message): string
     {
         $message = trim(explode("\n", $message)[0] ?? '');
